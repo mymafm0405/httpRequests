@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs/operators';
 import { Post } from './post.model';
+import { PostService } from './post.service';
+import { NgForm } from '@angular/forms';
 
 @Component({
   selector: 'app-root',
@@ -9,10 +11,12 @@ import { Post } from './post.model';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
+  @ViewChild('postForm', {static: false}) postForm: NgForm;
   loadedPosts = [];
   isFetching = false;
+  error = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private postService: PostService) {}
 
   ngOnInit() {
     this.fetchPost();
@@ -20,9 +24,10 @@ export class AppComponent implements OnInit {
 
   onCreatePost(postData: { title: string; content: string }) {
     // Send Http request
-    this.http.post<{name: string}>('https://learnangular-a702d-default-rtdb.firebaseio.com/posts.json', postData).subscribe(
-      responseData => {
-        console.log(responseData ,postData);
+    this.postService.createPost(postData).subscribe(
+      () => {
+        this.fetchPost();
+        this.postForm.reset();
       }
     )
   }
@@ -34,26 +39,23 @@ export class AppComponent implements OnInit {
 
   onClearPosts() {
     // Send Http request
+    this.postService.deletePosts().subscribe(
+      () => {
+        this.loadedPosts = [];
+      }
+    );
   }
 
   private fetchPost() {
     this.isFetching = true;
-    this.http.get<{[key: string]: Post}>('https://learnangular-a702d-default-rtdb.firebaseio.com/posts.json')
-    .pipe(map(
-      responseData => {
-        const postsArray: Post[] = [];
-          for (const key in responseData) {
-            if (responseData.hasOwnProperty(key)) {
-            postsArray.push({...responseData[key], id: key});
-           }
-         }
-        return postsArray;
-      }
-    ))
-    .subscribe(
+    this.error = null;
+    this.postService.fetchPosts().subscribe(
       posts => {
         this.isFetching = false;
         this.loadedPosts = posts;
+      },
+      error => {
+        this.error = error.error.error;
       }
     )
   }
